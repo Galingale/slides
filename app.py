@@ -24,11 +24,11 @@ class App(tk.Frame):
         self.label.focus_set()
         self.label.bind('<Return>', self.display)
 
-        button_next = tk.Button(self, text='Next', command=lambda: self.display())
-        button_next.grid(row=0, column=2, sticky='w')
+        self.button_next = tk.Button(self, text='Next', command=lambda: self.display())
+        self.button_next.grid(row=0, column=2, sticky='w')
 
-        button_back = tk.Button(self, text='Back', command=lambda: self.display(next_image=False))
-        button_back.grid(row=0, column=1, sticky='e')
+        self.button_back = tk.Button(self, text='Back', command=lambda: self.display(next_image=False))
+        self.button_back.grid(row=0, column=1, sticky='e')
 
     def display(self, next_image=True):
 
@@ -42,7 +42,7 @@ class App(tk.Frame):
             #print('Back from {0} to {1}'.format(cur_a, self.cur))
         elif not next_image:
             self.cur -= 1
-            #('Back from {0} to {1}'.format(cur_a, self.cur))
+            #print('Back from {0} to {1}'.format(cur_a, self.cur))
 
         try:
             f = self.images[self.cur]
@@ -55,7 +55,7 @@ class App(tk.Frame):
         image = image.resize((WIDTH, HEIGHT), Image.ANTIALIAS)
         photo = ImageTk.PhotoImage(image)
 
-        self.label.config(image=photo, text='Photo {0}'.format(self.cur))
+        self.label.config(image=photo)
         self.label.image = photo
         self.label.text = 'Photo {0}'.format(self.cur)
 
@@ -70,7 +70,7 @@ class App(tk.Frame):
 def main():
     root = tk.Tk()
     root.title('Slides')
-    root.geometry(str(WIDTH) + 'x' + str(HEIGHT+40))
+    root.geometry(str(WIDTH) + 'x' + str(HEIGHT))
     app = App(root)
     app.grid(row=0, column=0)
     root.mainloop()
