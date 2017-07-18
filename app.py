@@ -26,6 +26,9 @@ class App(tk.Frame):
 
     def initialize_start(self):
 
+        # remove all existing widgets
+        self.tear_down_all()
+
         self.start = tk.Label(self, text='Press "Enter" to start')
         self.start.focus_set()
         self.start.bind('<Return>',
@@ -34,7 +37,7 @@ class App(tk.Frame):
 
         logger.debug("Start screen initialized")
 
-    def tear_down_all(self, event, *args):
+    def tear_down_all(self, event=None, *args):
         logger.debug("Button pressed: {0}".format(event))
 
         for widget in self.winfo_children():
@@ -66,8 +69,16 @@ class App(tk.Frame):
                              lambda event: self.tear_down_slideshow(event))
         self.button_end.grid(row=0, column=3, sticky='w')
 
-        logger.debug("Widgets for slideshow set up")
-        logger.debug("Widgets: {0}".format(self.winfo_children()))
+        # widgets that will be set by the display method
+        self.photo_label = tk.Label(self)
+        self.photo_label.focus_set()
+        self.photo_label.bind('<Return>', self.display)
+        self.photo_label.grid(row=1, columnspan=4, sticky='nsew')
+
+        self.number_label = tk.Label(self)
+        self.number_label.grid(row=0, column=3, sticky='e', padx=10)
+
+        logger.debug("Widgets for slideshow set up: {0}".format(self.winfo_children()))
 
         #start slideshow
         self.display()
@@ -84,6 +95,7 @@ class App(tk.Frame):
         self.initialize_start()
 
     def display(self, next_image=True):
+        logger.debug("Current children: {0}".format(self.winfo_children()))
 
         cur_a = self.cur
 
@@ -99,32 +111,30 @@ class App(tk.Frame):
 
         try:
             self.set_photo()
-            logger.debug("Photo set to {0}".format(self.image_paths[self.cur]))
+            self.set_image_number()
         except IndexError:
             self.cur = -1
             logger.debug("End of images reached")
             self.display()
             return
 
-        # updates current image number out of total images
-        self.image_number = tk.Label(self, text='{0}/{1}'.format(self.cur + 1, len(self.image_paths)))
-        self.image_number.grid(row=0, column=3, sticky='e', padx=10)
-
-
     def set_photo(self):
         f = self.image_paths[self.cur]
-        photo = self.prep_image(f)
-
-        self.photo_label = tk.Label(self, image=photo)
-        self.photo_label.image = photo
-        self.photo_label.focus_set()
-        self.photo_label.bind('<Return>', self.display)
-        self.photo_label.grid(row=1, columnspan=4, sticky='nsew')
-
-    def prep_image(self, f):
         image = Image.open(f)
         resized_image = image.resize((WIDTH, HEIGHT), Image.ANTIALIAS)
-        return ImageTk.PhotoImage(resized_image)
+        photo = ImageTk.PhotoImage(resized_image)
+
+        self.photo_label.config(image=photo)
+        self.photo_label.image = photo
+
+        logger.debug("Photo set to {0}".format(f))
+
+    def set_image_number(self):
+        # updates current image number out of total images
+        image_number = '{0}/{1}'.format(self.cur + 1, len(self.image_paths))
+        self.number_label.config(text=image_number)
+
+        logger.debug("Image number label set: {0}".format(image_number))
 
     def quit(self):
         sys.exit()
