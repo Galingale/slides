@@ -1,3 +1,4 @@
+from tkinter import filedialog, messagebox
 import tkinter as tk
 from PIL import ImageTk, Image
 
@@ -10,7 +11,7 @@ logging.config.fileConfig('logging.conf')
 logger = logging.getLogger('App')
 logger.setLevel(logging.DEBUG)
 
-IMAGE_DIR = './images/'
+IMAGE_DIR = './cats/'
 HEIGHT = 600
 WIDTH = 800
 
@@ -18,76 +19,121 @@ WIDTH = 800
 class App(tk.Frame):
     def __init__(self, parent):
         tk.Frame.__init__(self, parent)
+        self.parent = parent
 
-        self.image_paths = [os.path.join(IMAGE_DIR, f) for f in os.listdir(IMAGE_DIR)]
+        self.dir = IMAGE_DIR
+        logger.debug("Current directory is {0}".format(self.dir))
+
+        # set up menu
+        self.menubar = tk.Menu(self.parent)
+        self.filemenu = tk.Menu(self.menubar, tearoff=0)
+        self.filemenu.add_command(label="Open",
+                                  command=self.choose_directory)
+        self.menubar.add_cascade(label="File", menu=self.filemenu)
+
+        self.parent.config(menu=self.menubar)
+
+        # frame inside main frame for containing dynamic widgets
+        self.frame = tk.Frame(self.parent, relief='raised')
+        self.frame.grid()
+
+        # get files from current directory
+        try:
+            self.image_paths = [os.path.join(self.dir, f) for f in os.listdir(self.dir)]
+        except FileNotFoundError:
+            if tk.messagebox.askquestion("Select directory",
+                                         "No directory selected. \nSelect a directory now?"):
+                self.choose_directory()
+
+        # keep track of files
         self.cur = -1
 
         self.initialize_start()
 
     def initialize_start(self):
-
-        # remove all existing widgets
+        # remove widgets from secondary frame
         self.tear_down_all()
 
-        self.start = tk.Label(self, text='Press "Enter" to start')
+        # add widgets to secondary frame
+        self.start = tk.Label(self.frame, text='Press "Enter" to start')
         self.start.focus_set()
         self.start.bind('<Return>',
                         lambda event, : self.initialize_slideshow(event))
         self.start.grid(sticky='wens')
 
+        self.parent.grid_columnconfigure(0, weight=1)
+        self.parent.grid_rowconfigure(0, weight=1)
+
         logger.debug("Start screen initialized")
 
     def tear_down_all(self, event=None, *args):
+        # remove widgets from secondary frame
         logger.debug("Button pressed: {0}".format(event))
 
-        for widget in self.winfo_children():
+        for widget in self.frame.winfo_children():
             widget.destroy()
             logger.debug("Removed widget: {0}".format(widget))
 
-    def _button_callback(self, event, *args):
-        logger.debug("Button pressed: {0}".format(event))
+    def choose_directory(self, event=None, *args):
+        self.dir = tk.filedialog.askdirectory(initialdir='.', title='Select directory')
+        if self.dir:
+            self.image_paths = [os.path.join(self.dir, f) for f in os.listdir(self.dir)]
 
-        self.display(*args)
+        logger.debug("Current directory is {0}".format(self.dir))
+        logger.debug("File_paths are {0}".format(self.image_paths))
 
-    def initialize_slideshow(self, event, *args):
+    def initialize_slideshow(self, event=None, *args):
+
+        try:
+            os.listdir(path=self.dir)
+        except FileNotFoundError:
+            tk.messagebox.showwarning("No valid directory",
+                                      "No valid directory selected. \nSelect a directory to continue.")
+            return
+
         # remove all existing widgets
         self.tear_down_all(event)
 
-        # set up widgets for the slideshow
-        self.button_next = tk.Button(self, text='Next')
+        # set up widgets to control the slideshow
+        self.button_next = tk.Button(self.frame, text='Next')
         self.button_next.bind('<ButtonRelease-1>',
                               lambda event, next_image=True: self._button_callback(event, next_image))
         self.button_next.grid(row=0, column=2, sticky='w')
 
-        self.button_back = tk.Button(self, text='Back')
+        self.button_back = tk.Button(self.frame, text='Back')
         self.button_back.bind('<ButtonRelease-1>',
                               lambda event, next_image=False: self._button_callback(event, next_image))
         self.button_back.grid(row=0, column=1, sticky='e')
 
-        self.button_end = tk.Button(self, text='End slideshow')
+        self.button_end = tk.Button(self.frame, text='End slideshow')
         self.button_end.bind('<ButtonRelease-1>',
                              lambda event: self.tear_down_slideshow(event))
         self.button_end.grid(row=0, column=3, sticky='w')
 
-        # widgets that will be set by the display method
-        self.photo_label = tk.Label(self)
+        # set up widgets that will be set by the display method
+        self.photo_label = tk.Label(self.frame)
         self.photo_label.focus_set()
         self.photo_label.bind('<Return>', self.display)
         self.photo_label.grid(row=1, columnspan=4, sticky='nsew')
 
-        self.number_label = tk.Label(self)
+        self.number_label = tk.Label(self.frame)
         self.number_label.grid(row=0, column=3, sticky='e', padx=10)
 
-        logger.debug("Widgets for slideshow set up: {0}".format(self.winfo_children()))
+        logger.debug("Widgets for slideshow set up: {0}".format(self.frame.winfo_children()))
 
         #start slideshow
         self.display()
 
-    def tear_down_slideshow(self, event, *args):
-        # remove widgets for slideshow
+    def _button_callback(self, event=None, *args):
         logger.debug("Button pressed: {0}".format(event))
 
-        for widget in self.winfo_children():
+        self.display(*args)
+
+    def tear_down_slideshow(self, event, *args):
+        # remove widgets from secondary frame for slideshow
+        logger.debug("Button pressed: {0}".format(event))
+
+        for widget in self.frame.winfo_children():
             widget.destroy()
             logger.debug("Removed widget: {0}".format(widget))
 
@@ -95,7 +141,7 @@ class App(tk.Frame):
         self.initialize_start()
 
     def display(self, next_image=True):
-        logger.debug("Current children: {0}".format(self.winfo_children()))
+        logger.debug("Current children: {0}".format(self.frame.winfo_children()))
 
         cur_a = self.cur
 
