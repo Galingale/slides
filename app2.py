@@ -1,3 +1,5 @@
+"""CREDIT TO SENTDEX FOR BASIC PROGRAM STRUCTURE"""
+
 from tkinter import filedialog, messagebox
 from tkinter import ttk
 import tkinter as tk
