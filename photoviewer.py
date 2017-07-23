@@ -12,7 +12,7 @@ import logging.config
 
 logging.config.fileConfig('logging.conf')
 logger = logging.getLogger('App')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 IMAGE_DIR = './images/'
 HEIGHT = 600
@@ -25,10 +25,14 @@ NORM_FONT = ('Verdana', 10)
 class App(tk.Tk):
 
     def __init__(self):
+        logging.info("Initiating...")
         tk.Tk.__init__(self)
 
         self.title('Slideshow')
         self.geometry('800x600')
+        self.directory = None
+
+        logging.info("Creating widgets")
 
         self.container = tk.Frame(self, bd=1)
         self.container.pack(side='top', fill='both', expand=True)
@@ -42,57 +46,69 @@ class App(tk.Tk):
         menubar.add_cascade(label="File", menu=filemenu)
         tk.Tk.config(self, menu=menubar)
 
+        logging.info("Widgets created")
+
+        if not self.directory:
+            logging.info("No directory selected, waiting for user input")
+            self.select_directory()
+            logging.info("Directory selected")
+
+        if self.directory:
+            self.set_up()
+
+    def set_up(self):
+        logging.info("Setting image paths")
+        self.image_paths = self.set_image_paths()
+        logging.info("Image paths set")
+
+        logging.info("Creating frames")
         self.frames = {}
         self.create_frames()
+        logging.info("Frames created")
+
+        logging.info("Initialization done")
+
+        self.show_frame(StartPage)
 
     def create_frames(self):
-        if self.set_image_paths():
-
-            for f in (StartPage, PictureViewer, AutoSlideshow):
-                frame = f(self.container, self)
-                logging.debug("Self: {0}".format(self))
-                self.frames[f] = frame
-                frame.grid(row=0, column=0, sticky='nsew')
-                logging.debug("Frame created: {0}".format(frame))
-
-            print(self.frames)
-
-            self.show_frame(StartPage)
-        else:
-            select = tk.messagebox.askquestion("Select directory",
-                                               "No valid directory selected. \nSelect a directory now?")
-            if select == 'yes':
-                self.set_directory()
-                self.set_image_paths()
-                self.create_frames()
-
-    def get_frames(self):
-        return self.frames
+        for f in (StartPage, PictureViewer, AutoSlideshow):
+            frame = f(self.container, self)
+            self.frames[f] = frame
+            frame.grid(row=0, column=0, sticky='nsew')
 
     def show_frame(self, container):
         frame = self.frames[container]
-        logging.debug("Frame {0}".format(frame))
         frame.tkraise()
+
+    def select_directory(self):
+        select = tk.messagebox.askquestion("Select directory",
+                                           "No valid directory selected. \nSelect a directory now?")
+        if select == 'yes':
+            logging.info("Setting directory...")
+            self.set_directory()
+            logging.info("Directory set")
+        else:
+            self.directory = None
+            logging.info("No directory set")
 
     def set_directory(self):
         try:
-            new_dir = tk.filedialog.askdirectory(initialdir='.', title='Select directory')
-            os.chdir(new_dir)
-            self.create_frames()
+            self.directory = tk.filedialog.askdirectory(initialdir='.', title='Select directory')
+            os.chdir(self.directory)
+            logging.debug("Set directory to: {0}".format(self.directory))
+            self.set_up()
 
         except OSError:
             # window canceled, don't do anything
             return
-
-    logging.debug("Set directory to: {0}".format(os.getcwd()))
 
     def set_image_paths(self):
         try:
             cur_dir = os.getcwd()
             paths = [os.path.join(cur_dir, f) for f in os.listdir(cur_dir)]
             image_paths = [f for f in paths if check_image_with_pil(f)]
+            logging.debug("Image paths: {0}".format(image_paths))
             return image_paths
-            logging.debug("Image paths returned: {0}".format(image_paths))
         except FileNotFoundError:
             select = tk.messagebox.askquestion("Select directory",
                                                "No valid directory selected. \nSelect a directory now?")
@@ -108,6 +124,16 @@ class App(tk.Tk):
                 set_image_paths()
 
 def check_image_with_pil(path):
+
+    """
+
+    >>> check_image_with_pil('D:\\Python projects\\slides\\images2\\IMG_0495.JPG')
+    True
+    >>> check_image_with_pil('D:\\Python projects\\slides\\images2\\something.TXT')
+    False
+
+    """
+
     try:
         Image.open(path)
     except IOError:
@@ -134,13 +160,16 @@ def popupmsg(msg):
 class StartPage(tk.Frame):
 
     def __init__(self, parent, master):
+        logging.info("Initiating...")
+
         tk.Frame.__init__(self, parent)
         self.parent = parent
         self.master = master
-        self.image_paths = master.set_image_paths()
-        logging.debug("(start page) Image paths set to: {0}".format(self.image_paths))
+        self.image_paths = master.image_paths
 
         self.set_up()
+
+        logging.info("Initialization done")
 
     def set_up(self):
         self.button_frame = tk.Frame(self)
@@ -154,32 +183,52 @@ class StartPage(tk.Frame):
                                      command=lambda: self.master.show_frame(AutoSlideshow))
         self.start_slideshow.pack(pady=10, padx=10)
 
-        self.thumbnail_frame = tk.Frame(self)
-        self.thumbnail_frame.pack()
+        if self.image_paths:
+            self.set_thumbnails()
 
-        self.set_thumbnails()
         logging.debug('thumbnails: {0}'.format(self.thumbnails))
 
     def set_thumbnails(self):
+        logging.info("Generating thumbnails...")
+        self.thumbnail_frame = tk.Frame(self)
+        self.thumbnail_frame.pack(pady=10)
+
+        self.thumbnail_label1 = tk.Label(self.thumbnail_frame, text='Preview', font=14)
+        self.thumbnail_label1.pack()
+
         self.thumbnails = []
-        for file in self.image_paths:
+        self.number_of_thumbnails = 3
+
+        for file in self.image_paths[:self.number_of_thumbnails]:
             image = Image.open(file)
             resized_image = image.resize((80,60), Image.ANTIALIAS)
-            self.thumbnails.append(ImageTk.PhotoImage(resized_image))
+            thumbnail = ImageTk.PhotoImage(resized_image)
+            self.thumbnails.append(thumbnail)
 
         for thumbnail in self.thumbnails:
             label = tk.Label(self.thumbnail_frame, image=thumbnail)
             label.pack(side='left')
 
 
+        remaining_images = len(self.image_paths) - self.number_of_thumbnails
+        self.thumbnail_label2 = tk.Label(self.thumbnail_frame, text='... and {0} more images.'.format(remaining_images))
+        self.thumbnail_label2.pack()
+
+        logging.info("Thumbnails generated")
+
+
 class PictureViewer(tk.Frame):
 
     def __init__(self, parent, master):
+        logging.info("Initiating...")
+
         tk.Frame.__init__(self, parent)
         self.parent = parent
         self.master = master
 
         self.set_up()
+
+        logging.info("Initialization done")
 
     def set_up(self):
         label = ttk.Label(self, text='Picture viewer', font='LARGE_FONT')
@@ -196,16 +245,22 @@ class PictureViewer(tk.Frame):
 class AutoSlideshow(tk.Frame):
 
     def __init__(self, parent, master):
+        logging.info("Initiating...")
+
         tk.Frame.__init__(self, parent)
         self.parent = parent
         self.master = master
         self.current_slide = 0
         self.delay = DELAY
 
-        self.image_paths = master.set_image_paths()
+        self.image_paths = master.image_paths
         logging.debug("Image paths: {0}".format(self.image_paths))
 
+        self.photos = []
+
         self.set_up()
+
+        logging.info("Initialization done")
 
     def set_up(self):
         self.label = ttk.Label(self, text='Slideshow', font='LARGE_FONT')
@@ -284,6 +339,7 @@ class AutoSlideshow(tk.Frame):
 
         try:
             # get path of photo and prep it
+
             path = self.image_paths[self.current_slide]
             image = Image.open(path)
             resized_image = image.resize((WIDTH, HEIGHT), Image.ANTIALIAS)
@@ -304,6 +360,7 @@ class AutoSlideshow(tk.Frame):
         except IndexError:
             logger.debug("End of images reached")
             return
+
 
 def main():
     app = App()
